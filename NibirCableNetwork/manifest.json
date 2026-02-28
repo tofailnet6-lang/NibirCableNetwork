@@ -1,0 +1,15 @@
+{
+  "name": "নিবির ক্যাবল নেটওয়ার্ক",
+  "short_name": "Nibir Cable",
+  "display": "standalone",
+  "start_url": ".",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5a4",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

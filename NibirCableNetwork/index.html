@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>নিবির ক্যাবল নেটওয়ার্ক — বিলিং অ্যাপ (PWA)</title>
+  <meta name="theme-color" content="#0ea5a4" />
+  <style>
+    :root{--bg:#f8fafc;--card:#fff;--muted:#475569;--accent:#0ea5a4}
+    *{box-sizing:border-box;font-family:Inter, system-ui, Roboto, sans-serif}
+    body{margin:0;background:var(--bg);color:#0f172a}
+    header{display:flex;gap:12px;align-items:center;padding:12px;background:linear-gradient(90deg,#ecfeff,transparent);position:sticky;top:0;border-bottom:1px solid #e6eef0;z-index:5}
+    .logo{width:56px;height:56px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .logo img{width:100%;height:100%;object-fit:contain}
+    h1{font-size:16px;margin:0}
+    .toolbar{margin-left:auto;display:flex;gap:8px;align-items:center}
+    button{background:var(--card);border:1px solid #e2e8f0;padding:8px 10px;border-radius:8px;font-size:13px;cursor:pointer}
+    main{padding:12px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
+    .card{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 1px 2px rgba(2,6,23,0.03)}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #e6eef0}
+    .list{max-height:50vh;overflow:auto}
+    .row{display:flex;gap:8px;align-items:center}
+    .muted{color:var(--muted);font-size:13px}
+    .big{font-size:18px}
+    .kpi{display:flex;gap:8px;flex-wrap:wrap}
+    .kpi .tile{flex:1;min-width:140px;padding:12px;border-radius:10px;background:#fff}
+    .tabs{display:flex;gap:6px;margin-bottom:10px}
+    .tabs button{padding:8px 10px;border-radius:8px}
+    footer{padding:12px;text-align:center;font-size:12px;color:var(--muted)}
+    .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:12px;border-radius:10px;box-shadow:0 8px 32px rgba(2,6,23,0.12);z-index:50;max-width:520px;width:95%;display:none}
+    .modal.full{width:98%;height:auto;max-height:90vh;overflow:auto}
+    .modal.show{display:block}
+    .overlay{position:fixed;inset:0;background:rgba(2,6,23,0.4);z-index:40;display:none}
+    .overlay.show{display:block}
+    .small{font-size:12px}
+    .chart{width:100%;height:160px;background:#fff;border-radius:8px;padding:8px}
+    .sidebar{position:sticky;top:72px}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#16a34a;color:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 6px 20px rgba(2,6,23,0.12);display:none;z-index:999}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.sidebar{position:static}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo" id="logoPreview" title="Logo">
+      <img id="logoImg" src="" alt="logo" style="display:none"/>
+      <div id="logoPlaceholder" style="padding:8px;color:#0891b2;font-weight:700">নিবির</div>
+    </div>
+    <div>
+      <h1>নিবির ক্যাবল নেটওয়ার্ক</h1>
+      <div class="muted">ইন্টারনেট বিলিং ও ম্যানেজমেন্ট সফটওয়্যার (PWA)</div>
+    </div>
+
+    <div class="toolbar">
+      <input id="logoInput" type="file" accept="image/*" style="display:none">
+      <button id="btnLogo">লোগো পরিবর্তন</button>
+      <button data-tab="dashboard">ড্যাশবোর্ড</button>
+      <button data-tab="customers">কাস্টমার</button>
+      <button data-tab="billing">বিলিং</button>
+      <button data-tab="expenses">খরচ</button>
+      <button data-tab="ispmanager">ISP ম্যানেজার</button>
+      <button id="btnBackup">বেকআপ</button>
+      <input id="restoreFile" type="file" accept="application/json" style="display:none">
+      <button id="btnRestore">রিস্টোর</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <div>
+        <!-- Dashboard -->
+        <div id="dashboard" class="tab card">
+          <h3>ড্যাশবোর্ড</h3>
+          <div class="kpi">
+            <div class="tile">
+              <div class="muted">এই মাসে নতুন ইউজার</div>
+              <div id="kNewUsers" class="big">0</div>
+            </div>
+            <div class="tile">
+              <div class="muted">এই মাসে মোট বিল (জেনারেট)</div>
+              <div id="kThisMonthBilled" class="big">0 ৳</div>
+            </div>
+            <div class="tile">
+              <div class="muted">এই মাসে মোট সংগ্রহ (পেইড)</div>
+              <div id="kThisMonthCollected" class="big">0 ৳</div>
+            </div>
+            <div class="tile">
+              <div class="muted">এই মাসে খরচ</div>
+              <div id="kThisMonthExpenses" class="big">0 ৳</div>
+            </div>
+            <div class="tile">
+              <div class="muted">ব্যালেন্স (সংগ্রহ − খরচ)</div>
+              <div id="kBalance" class="big">0 ৳</div>
+            </div>
+            <div class="tile">
+              <div class="muted">মোট ইউজার</div>
+              <div id="kTotalUsers" class="big">0</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="card">
+            <div class="tabs">
+              <button id="btn12Billing">12 মাস বিল (চার্ট)</button>
+              <button id="btn12Users">12 মাস ইউজার (চার্ট)</button>
+              <button id="btn12Exp">12 মাস খরচ (চার্ট)</button>
+              <button id="btn12Isp">12 মাস ISP বিল পেইড (চার্ট)</button>
+            </div>
+            <div id="dashContent"></div>
+          </div>
+        </div>
+
+        <!-- Customers / User management -->
+        <div id="customers" class="tab card" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3>কাস্টমার</h3>
+            <div>
+              <button id="btnAddCustomer">নতুন ইউজার যোগ করুন</button>
+              <button id="btnGenerateNextMonth">পরের মাসের বিল জেনারেট করুন</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h4>কাস্টমার লিস্ট</h4>
+            <div id="customersList" class="list"></div>
+          </div>
+        </div>
+
+        <!-- Billing -->
+        <div id="billing" class="tab card" style="display:none">
+          <h3>বিলিং</h3>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button id="btnPayAllThisMonth">এই মাসের সব বিল পেইড করুন</button>
+            <button id="btnShowDueThisMonth">এই মাস অদায়িত বিল দেখান</button>
+            <button id="btnShowAllBills">সকল বিল</button>
+          </div>
+          <div id="billingContent"></div>
+        </div>
+
+        <!-- Expenses -->
+        <div id="expenses" class="tab card" style="display:none">
+          <h3>খরচ (খরচ যোগ করুন)</h3>
+          <div style="margin-bottom:8px">
+            <button id="btnAddExpense">খরচ যোগ করুন</button>
+          </div>
+          <div class="card">
+            <h4>সব খরচ</h4>
+            <div id="expensesList" class="list"></div>
+          </div>
+        </div>
+
+        <!-- ISP Manager -->
+        <div id="ispmanager" class="tab card" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3>ISP ম্যানেজার</h3>
+            <div>
+              <button id="btnAddIsp">নতুন ISP যোগ করুন</button>
+            </div>
+          </div>
+          <div class="card">
+            <h4>ISP তালিকা ও প্যাকেজ</h4>
+            <div id="ispList" class="list"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <aside class="sidebar">
+        <div class="card">
+          <h4>শর্টকার্টস</h4>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button data-tab="dashboard">ড্যাশবোর্ড</button>
+            <button data-tab="customers">কাস্টমার</button>
+            <button data-tab="billing">বিলিং</button>
+            <button data-tab="expenses">খরচ</button>
+            <button data-tab="ispmanager">ISP</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4>ব্যাকআপ / সেটিংস</h4>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button id="btnBackupSide">বেকআপ</button>
+            <button id="btnRestoreSide">রিস্টোর</button>
+            <label class="small">থিম</label>
+            <select id="themeSelect"><option value="light">লাইট</option><option value="dark">ডার্ক</option></select>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <footer>Tofayel Net — LocalStorage ভিত্তিক</footer>
+
+  <!-- Overlays & Modals -->
+  <div id="overlay" class="overlay"></div>
+
+  <div id="modalAddCustomer" class="modal full">
+    <h3>নতুন কাস্টমার যোগ করুন</h3>
+    <label>ISP</label>
+    <select id="formIsp"></select>
+    <label>প্যাকেজ</label>
+    <select id="formPackage"></select>
+    <label>নাম</label>
+    <input id="formName">
+    <label>মোবাইল</label>
+    <input id="formPhone">
+    <label>ঠিকানা</label>
+    <input id="formAddress">
+    <label>কানেকশন ফি</label>
+    <input id="formConnFee" type="number" value="0">
+    <label>শুরুর অদায়িত বিল</label>
+    <input id="formDue" type="number" value="0">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="saveCustomer">সেভ</button>
+      <button id="cancelCustomer">বাতিল</button>
+    </div>
+  </div>
+
+  <div id="modalCustomerDetails" class="modal full">
+    <h3 id="detailName">নাম</h3>
+    <div id="detailBody"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="detailClose">বন্ধ করুন</button>
+    </div>
+  </div>
+
+  <div id="modalAddIsp" class="modal full">
+    <h3>নতুন ISP যোগ করুন</h3>
+    <label>ISP নাম</label>
+    <input id="ispName">
+    <label>ঠিকানা (ঐচ্ছিক)</label>
+    <input id="ispAddress">
+    <label>ফোন (ঐচ্ছিক)</label>
+    <input id="ispPhone">
+    <h4>প্যাকেজ যোগ করুন</h4>
+    <label>প্যাকেজ নাম</label>
+    <input id="pkgName">
+    <label>দাম</label>
+    <input id="pkgPrice" type="number" value="0">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="addPkgBtn">প্যাকেজ যোগ করুন</button>
+    </div>
+    <div style="margin-top:8px">
+      <div id="pkgList"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="saveIsp">সেভ ISP</button>
+      <button id="cancelIsp">বাতিল</button>
+    </div>
+  </div>
+
+  <div id="modalAddExpense" class="modal full">
+    <h3>খরচ যোগ করুন</h3>
+    <label>নাম</label>
+    <input id="expName">
+    <label>পরিমাণ (৳)</label>
+    <input id="expPrice" type="number" value="0">
+    <label>তারিখ ও সময়</label>
+    <input id="expDateTime" type="datetime-local">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="saveExpense">সেভ</button>
+      <button id="cancelExpense">বাতিল</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // Final single-file PWA-capable HTML app
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const STORAGE_KEY = 'nibir_isp_billing_pwa_v1';
+      let DB = {meta:{logo:null,theme:'light',appName:'নিবির ক্যাবল নেটওয়ার্ক'}, isps:[], users:[], bills:[], expenses:[], events:[]};
+
+      const $ = id => document.getElementById(id);
+      const esc = s => s==null?'':String(s);
+      const uid = (p='id') => p+'_'+Math.random().toString(36).slice(2,9);
+      const overlay = $('overlay');
+      const toast = $('toast');
+
+      function showToast(msg, ms=3000){ toast.textContent = msg; toast.style.display='block'; setTimeout(()=>{ toast.style.display='none'; }, ms); }
+
+      function showTab(id){ document.querySelectorAll('.tab').forEach(t=>t.style.display='none'); const el=$(id); if(el) el.style.display='block'; try{ history.replaceState && history.replaceState(null,'','#'+id); }catch(e){} }
+      window.showTab = showTab;
+
+      function load(){ const raw = localStorage.getItem(STORAGE_KEY); if(raw){ try{ DB = JSON.parse(raw); }catch(e){ console.error(e); } } }
+      function save(eventText){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); if(eventText) pushEvent(eventText); renderAll(); }
+
+      function pushEvent(text){ DB.events = DB.events || []; DB.events.unshift({id:uid('ev'), text, time:new Date().toISOString()}); if(DB.events.length>50) DB.events.pop(); localStorage.setItem(STORAGE_KEY, JSON.stringify(DB)); }
+
+      function seed(){ if(!DB.isps || DB.isps.length===0){ DB.isps = [
+        {id:uid('isp'), name:'RDPN', address:'', phone:'', packages:[{name:'Home 10 Mbps',price:500},{name:'PRIMO - 12 Mbps',price:700},{name:'BASIC - 15 Mbps',price:1000},{name:'PRIMARY+ - 18 Mbps',price:1300},{name:'POSITIVE+ - 20 Mbps',price:1500}]},
+        {id:uid('isp'), name:'4011', address:'', phone:'', packages:[{name:'Home 10 Mbps',price:500}]},
+        {id:uid('isp'), name:'3011', address:'', phone:'', packages:[{name:'Home 10 Mbps',price:500}]},
+        {id:uid('isp'), name:'Free IP', address:'', phone:'', packages:[{name:'Home 10 Mbps',price:0}]}
+      ]; }
+      DB.users = DB.users || []; DB.bills = DB.bills || []; DB.expenses = DB.expenses || []; DB.events = DB.events || [];
+    }
+
+      // logo handling
+      $('btnLogo').addEventListener('click', ()=>$('logoInput').click());
+      $('logoInput').addEventListener('change', e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ DB.meta = DB.meta || {}; DB.meta.logo = r.result; save('লোগো আপলোড করা হয়েছে'); createAndLinkManifest(); showToast('লোগো আপলোড সম্পন্ন'); }; r.readAsDataURL(f); });
+
+      // renderers
+      function renderIspList(){ const el=$('ispList'); el.innerHTML=''; (DB.isps||[]).forEach(isp=>{ const div=document.createElement('div'); div.style.borderBottom='1px solid #eef'; div.style.padding='8px'; let pkgHtml = '<ul class="small">'+(isp.packages||[]).map(p=>`<li>${esc(p.name)} — ${p.price} ৳</li>`).join('')+'</ul>'; div.innerHTML = `<strong>${esc(isp.name)}</strong> <div class="muted">${esc(isp.address)} ${esc(isp.phone)}</div>${pkgHtml}`; el.appendChild(div); }); }
+
+      function populateIspSelects(){ const s=$('formIsp'); if(s){ s.innerHTML=''; DB.isps.forEach(i=>{ const o=document.createElement('option'); o.value=i.id; o.textContent=i.name; s.appendChild(o); }); } if($('formIsp')) $('formIsp').addEventListener('change', populatePackageSelect); }
+      function populatePackageSelect(){ const pid = $('formIsp')? $('formIsp').value : null; const sel=$('formPackage'); sel.innerHTML=''; const isp = (DB.isps||[]).find(i=>i.id===pid); if(isp && isp.packages){ isp.packages.forEach(p=>{ const o=document.createElement('option'); o.value = p.price; o.textContent = p.name + ' — ' + p.price + ' ৳'; sel.appendChild(o); }); } }
+
+      function renderCustomersList(){ const list=$('customersList'); list.innerHTML=''; (DB.users||[]).forEach((u,idx)=>{ const div=document.createElement('div'); div.style.borderBottom='1px solid #eef'; div.style.padding='8px'; const isp=(DB.isps||[]).find(i=>i.id===u.ispId)||{name:'-'}; div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong class=\"custName\" data-id=\"${u.id}\">${esc(u.name)}</strong><div class=\"muted\">${esc(u.address)} — ${esc(u.phone)}</div><div class=\"small muted\">${esc(isp.name)} — ${esc(u.pkgName||'')}</div></div><div><button class=\"btnPay\">💰 বিল পরিশোধ</button> <button class=\"btnView\">বিস্তারিত</button> <button class=\"btnCall\">📞</button> <button class=\"btnSms\">✉️</button></div></div>`; list.appendChild(div); });
+        list.querySelectorAll('.btnPay').forEach((b,i)=> b.addEventListener('click', ()=> openPayPopup(DB.users[i].id)));
+        list.querySelectorAll('.btnView').forEach((b,i)=> b.addEventListener('click', ()=> openCustomerDetails(DB.users[i].id)));
+        list.querySelectorAll('.custName').forEach(el=> el.addEventListener('click', ()=> openCustomerDetails(el.getAttribute('data-id'))));
+        list.querySelectorAll('.btnCall').forEach((b,i)=> b.addEventListener('click', ()=>{ const u=DB.users[i]; if(u && u.phone) window.location.href='tel:'+u.phone; }));
+        list.querySelectorAll('.btnSms').forEach((b,i)=> b.addEventListener('click', ()=>{ const u=DB.users[i]; if(u && u.phone) window.location.href='sms:'+u.phone; }));
+      }
+
+      function renderBillingContent(filter){ const area=$('billingContent'); area.innerHTML=''; const curMonth=new Date().toISOString().slice(0,7); let bills = DB.bills||[]; if(filter==='thisMonthDue') bills=bills.filter(b=>b.month===curMonth && b.status!=='paid'); if(filter==='thisMonthAll') bills=bills.filter(b=>b.month===curMonth); bills=bills.sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||'')); bills.forEach(b=>{ const u=(DB.users||[]).find(x=>x.id===b.userId)||{name:'(deleted)'}; const div=document.createElement('div'); div.style.borderBottom='1px solid #eef'; div.style.padding='8px'; div.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>${esc(u.name)}</strong><div class=\"muted\">${esc(b.month)} — ${esc(b.note||'')}</div></div><div><div class=\"muted\">${b.amount} ৳</div></div></div>`; const actions=document.createElement('div'); actions.style.marginTop='6px'; const pay=document.createElement('button'); pay.textContent=b.status==='paid'?'পেইড':'পেইমেন্ট'; pay.disabled=b.status==='paid'; pay.addEventListener('click', ()=>{ b.status='paid'; b.paidAt=new Date().toISOString(); pushEvent(`বিল পেইড: ${u.name} — ${b.amount} ৳`); save('বিল পেইড: '+u.name); showToast('বিল পরিশোধ সফল হয়েছে'); }); const call=document.createElement('button'); call.textContent='📞'; call.addEventListener('click', ()=>{ if(u.phone) window.location.href='tel:'+u.phone; }); const sms=document.createElement('button'); sms.textContent='✉️'; sms.addEventListener('click', ()=>{ if(u.phone) window.location.href='sms:'+u.phone; }); actions.appendChild(pay); actions.appendChild(call); actions.appendChild(sms); div.appendChild(actions); area.appendChild(div); }); }
+
+      function renderExpensesList(){ const list=$('expensesList'); list.innerHTML=''; (DB.expenses||[]).slice().sort((a,b)=> (b.dateTime||'').localeCompare(a.dateTime||'')).forEach(e=>{ const div=document.createElement('div'); div.style.borderBottom='1px solid #eef'; div.style.padding='8px'; div.innerHTML = `<div style=\"display:flex;justify-content:space-between\"><div><strong>${esc(e.name)}</strong><div class=\"muted small\">${esc(e.dateTime)}</div></div><div class=\"muted\">${e.price} ৳</div></div>`; list.appendChild(div); }); }
+
+      function computeKPI(){ const now=new Date(); const curMonth=now.toISOString().slice(0,7); const newUsers=(DB.users||[]).filter(u=> (u.createdAt||'').slice(0,7)===curMonth).length; const totalUsers=(DB.users||[]).length; const billedThisMonth=(DB.bills||[]).filter(b=>b.month===curMonth).reduce((s,b)=>s+b.amount,0); const collectedThisMonth=(DB.bills||[]).filter(b=>b.month===curMonth && b.status==='paid').reduce((s,b)=>s+b.amount,0); const expThisMonth=(DB.expenses||[]).filter(e=> (e.dateTime||'').slice(0,7)===curMonth).reduce((s,e)=>s+e.price,0); const balance=collectedThisMonth - expThisMonth; $('kNewUsers').textContent=newUsers; $('kThisMonthBilled').textContent=billedThisMonth+' ৳'; $('kThisMonthCollected').textContent=collectedThisMonth+' ৳'; $('kThisMonthExpenses').textContent=expThisMonth+' ৳'; $('kBalance').textContent=balance+' ৳'; $('kTotalUsers').textContent=totalUsers; const dash=$('dashContent'); const evs=(DB.events||[]).slice(0,10); let evHtml='<h4>সাম্প্রতিক কার্যক্রম</h4><div class="small muted">(সর্বশেষ 10)</div>'; evHtml += '<ul>' + evs.map(e=>`<li>${new Date(e.time).toLocaleString()} — ${esc(e.text)}</li>`).join('') + '</ul>'; dash.innerHTML=evHtml; }
+
+      function drawBarChart(container, labels, series, title){ container.innerHTML=''; const canvas=document.createElement('canvas'); canvas.width=container.clientWidth; canvas.height=160; container.appendChild(canvas); const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); const padding=30; const w=canvas.width-padding*2; const h=canvas.height-padding*2; const maxVal=Math.max(1,...series); const barW = w / Math.max(1,series.length) * 0.7; series.forEach((v,i)=>{ const x = padding + i*(w/Math.max(1,series.length)) + (w/Math.max(1,series.length)-barW)/2; const barH = (v/maxVal)*(h-20); const y = padding + (h-barH); ctx.fillStyle='#0ea5a4'; ctx.fillRect(x,y,barW,barH); ctx.fillStyle='#000'; ctx.font='11px sans-serif'; ctx.fillText(labels[i], x, canvas.height-6); ctx.fillText(v+'', x, y-6); }); ctx.font='14px sans-serif'; ctx.fillText(title, 10,16); }
+
+      function prepare12Months(){ const now=new Date(); const months=[]; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i,1); months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); } return months; }
+      function render12Billing(){ const container=$('dashContent'); container.innerHTML=''; const months=prepare12Months(); const vals=months.map(m=> (DB.bills||[]).filter(b=>b.month===m).reduce((s,b)=>s+b.amount,0)); const div=document.createElement('div'); div.className='chart'; container.appendChild(div); drawBarChart(div, months.map(m=>m.split('-')[1]), vals, '12 মাসে জেনারেটেড বিল'); }
+      function render12Users(){ const container=$('dashContent'); container.innerHTML=''; const months=prepare12Months(); const vals=months.map(m=> (DB.users||[]).filter(u=> (u.createdAt||'').slice(0,7)===m).length); const div=document.createElement('div'); div.className='chart'; container.appendChild(div); drawBarChart(div, months.map(m=>m.split('-')[1]), vals, '12 মাসে নতুন ইউজার'); }
+      function render12Expenses(){ const container=$('dashContent'); container.innerHTML=''; const months=prepare12Months(); const vals=months.map(m=> (DB.expenses||[]).filter(e=> (e.dateTime||'').slice(0,7)===m).reduce((s,e)=>s+e.price,0)); const div=document.createElement('div'); div.className='chart'; container.appendChild(div); drawBarChart(div, months.map(m=>m.split('-')[1]), vals, '12 মাসে খরচ'); }
+      function render12IspPaid(){ const container=$('dashContent'); container.innerHTML=''; const months=prepare12Months(); const vals=months.map(m=> (DB.bills||[]).filter(b=>b.month===m && b.status==='paid').reduce((s,b)=>s+b.amount,0)); const div=document.createElement('div'); div.className='chart'; container.appendChild(div); drawBarChart(div, months.map(m=>m.split('-')[1]), vals, '12 মাসে ISP বিল পেইড (মোট)'); }
+
+      // generate next month bills
+      function genNextMonthBills(){ const now=new Date(); const next=new Date(now.getFullYear(), now.getMonth()+1,1); const m=next.toISOString().slice(0,7); (DB.users||[]).forEach(u=>{ const exists=(DB.bills||[]).some(b=>b.userId===u.id && b.month===m); if(!exists){ DB.bills.push({id:uid('bill'), userId:u.id, month:m, amount: Number(u.pkgPrice||0), note:'অটোমেটিক পরের মাস', status:'due', createdAt:new Date().toISOString()}); } }); save('পরের মাসের বিল জেনারেট করা হয়েছে ('+m+')'); showToast('পরের মাসের বিল জেনারেট করা হয়েছে ('+m+')'); }
+
+      // pay popup
+      function openPayPopup(uid){ const user=(DB.users||[]).find(u=>u.id===uid); if(!user) return alert('ব্যবহারকারী পাওয়া যায়নি'); const curMonth=new Date().toISOString().slice(0,7); const thisMonthBills=(DB.bills||[]).filter(b=>b.userId===uid && b.month===curMonth && b.status!=='paid'); const allDue=(DB.bills||[]).filter(b=>b.userId===uid && b.status!=='paid'); let defaultAmount=0; if(thisMonthBills.length) defaultAmount=thisMonthBills.reduce((s,b)=>s+b.amount,0); else defaultAmount=Number(user.pkgPrice||0); const modal=document.createElement('div'); modal.className='modal full show'; modal.style.zIndex=9999; modal.innerHTML = `<h3>বিল পরিশোধ — ${esc(user.name)}</h3><div class="muted">তারিখ: ${new Date().toLocaleString()}</div><label>টাকা</label><input id=\"payAmount\" value=\"${defaultAmount}\"> <div style=\"display:flex;gap:8px;margin-top:8px\"><button id=\"payThis\">এই মাসের বিল পরিশোধ করুন</button><button id=\"payAll\">সব বকেয়া বিল পরিশোধ করুন</button><button id=\"payCancel\">বাতিল</button></div>`; document.body.appendChild(modal); $('payCancel').addEventListener('click', ()=> modal.remove()); $('payThis').addEventListener('click', ()=>{ const amt=Number($('payAmount').value)||0; thisMonthBills.forEach(b=>{ b.status='paid'; b.paidAt=new Date().toISOString(); }); pushEvent(`এই মাসের বিল পরিশোধ: ${user.name} — ${amt} ৳`); save('এই মাসের বিল পরিশোধ: '+user.name); showToast('বিল পরিশোধ সফল হয়েছে'); modal.remove(); }); $('payAll').addEventListener('click', ()=>{ const amt=Number($('payAmount').value)||0; allDue.forEach(b=>{ b.status='paid'; b.paidAt=new Date().toISOString(); }); pushEvent(`সব বকেয়া বিল পরিশোধ: ${user.name} — ${amt} ৳`); save('সব বকেয়া বিল পরিশোধ: '+user.name); showToast('সব বকেয়া বিল পরিশোধ সফল হয়েছে'); modal.remove(); }); }
+
+      // open customer details
+      function openCustomerDetails(uid){ const u=(DB.users||[]).find(x=>x.id===uid); if(!u) return alert('ব্যবহারকারী পাওয়া যায়নি'); const isp=(DB.isps||[]).find(i=>i.id===u.ispId)||{}; const body=$('detailBody'); body.innerHTML=`<div class="muted">${esc(u.address)} — ${esc(u.phone)}</div><div class="muted small">ISP: ${esc(isp.name)} — প্যাকেজ: ${esc(u.pkgName)} — ${esc(u.pkgPrice)} ৳</div>`; const userBills=(DB.bills||[]).filter(b=>b.userId===u.id).sort((a,b)=> (b.month||'').localeCompare(a.month||'')); const table=document.createElement('div'); table.style.marginTop='8px'; table.innerHTML='<h4>বিলসমূহ</h4>'; userBills.forEach(b=>{ const row=document.createElement('div'); row.style.display='flex'; row.style.justifyContent='space-between'; row.style.padding='6px 0'; row.innerHTML=`<div>${esc(b.month)} — ${esc(b.note||'')}</div><div>${b.amount} ৳ ${b.status==='paid' ? ' (পেইড)' : ''}</div>`; const btns=document.createElement('div'); if(b.status!=='paid'){ const pay=document.createElement('button'); pay.textContent='পেইমেন্ট'; pay.addEventListener('click', ()=>{ b.status='paid'; b.paidAt=new Date().toISOString(); pushEvent(`বিল পেইড: ${u.name} — ${b.amount} ৳`); save('বিল পেইড: '+u.name); openCustomerDetails(uid); }); btns.appendChild(pay); } const call=document.createElement('button'); call.textContent='📞'; call.addEventListener('click', ()=>{ if(u.phone) window.location.href='tel:'+u.phone; }); const sms=document.createElement('button'); sms.textContent='✉️'; sms.addEventListener('click', ()=>{ if(u.phone) window.location.href='sms:'+u.phone; }); btns.appendChild(call); btns.appendChild(sms); row.appendChild(btns); table.appendChild(row); }); body.appendChild(table); $('detailName').textContent=u.name; showModal('modalCustomerDetails'); }
+
+      function payAllThisMonth(){ const cur=new Date().toISOString().slice(0,7); const due=(DB.bills||[]).filter(b=>b.month===cur && b.status!=='paid'); if(due.length===0) return alert('এই মাসে কোন অদায়িত বিল নেই'); const total=due.reduce((s,b)=>s+b.amount,0); if(!confirm('এই মাসের সব বিল পেইড করবেন? মোট: '+total+' ৳')) return; due.forEach(b=>{ b.status='paid'; b.paidAt=new Date().toISOString(); }); save('এই মাসের সব বিল পেইড করা হয়েছে — মোট: '+total+' ৳'); showToast('পেমেন্ট সম্পন্ন — মোট '+total+' ৳'); }
+      function showDueThisMonth(){ showTab('billing'); renderBillingContent('thisMonthDue'); }
+
+      function openAddExpense(){ showModal('modalAddExpense'); $('expName').value=''; $('expPrice').value='0'; $('expDateTime').value=new Date().toISOString().slice(0,16); }
+      function saveExpense(){ const name=$('expName').value.trim(); const price=Number($('expPrice').value)||0; const dt=$('expDateTime').value||new Date().toISOString(); if(!name) return alert('নাম দিন'); DB.expenses.push({id:uid('exp'), name, price, dateTime:dt}); save('খরচ যোগ করা হয়েছে — '+price+' ৳'); showToast('💰 খরচ সফলভাবে সেভ হয়েছে!'); closeModal(); }
+
+      // ISP modal
+      let tempPkgs=[];
+      function openAddIsp(){ tempPkgs=[]; $('ispName').value=''; $('ispAddress').value=''; $('ispPhone').value=''; renderPkgList(); showModal('modalAddIsp'); }
+      function renderPkgList(){ const el=$('pkgList'); el.innerHTML=''; tempPkgs.forEach((p,i)=>{ const div=document.createElement('div'); div.textContent=p.name+' — '+p.price+' ৳'; const del=document.createElement('button'); del.textContent='Del'; del.style.marginLeft='6px'; del.addEventListener('click', ()=>{ tempPkgs.splice(i,1); renderPkgList(); }); div.appendChild(del); el.appendChild(div); }); }
+      $('addPkgBtn').addEventListener('click', ()=>{ const n=$('pkgName').value.trim(); const p=Number($('pkgPrice').value)||0; if(!n) return alert('প্যাকেজ নাম দিন'); tempPkgs.push({name:n,price:p}); $('pkgName').value=''; $('pkgPrice').value='0'; renderPkgList(); });
+      $('saveIsp').addEventListener('click', ()=>{ const n=$('ispName').value.trim(); const a=$('ispAddress').value.trim(); const ph=$('ispPhone').value.trim(); if(!n) return alert('ISP নাম দিন'); DB.isps.push({id:uid('isp'), name:n, address:a, phone:ph, packages: tempPkgs.slice()}); tempPkgs=[]; save('ISP যোগ করা হয়েছে — '+n); closeModal(); });
+
+      // add customer
+      function openAddCustomer(){ populateIspSelects(); populatePackageSelect(); $('formName').value=''; $('formPhone').value=''; $('formAddress').value=''; $('formConnFee').value='0'; $('formDue').value='0'; showModal('modalAddCustomer'); }
+      $('saveCustomer').addEventListener('click', ()=>{ const ispId=$('formIsp').value; const pkgPrice=Number($('formPackage').value)||0; const pkgName=$('formPackage').options[$('formPackage').selectedIndex].text; const name=$('formName').value.trim(); const phone=$('formPhone').value.trim(); const addr=$('formAddress').value.trim(); const conn=Number($('formConnFee').value)||0; const due=Number($('formDue').value)||0; if(!name) return alert('নাম দিন'); const newUser={id:uid('user'), ispId, pkgName, pkgPrice, pkgPriceRaw:pkgPrice, name, phone, address:addr, connFee:conn, createdAt:new Date().toISOString()}; DB.users.push(newUser); const month=new Date().toISOString().slice(0,7); if(conn>0) DB.bills.push({id:uid('bill'), userId:newUser.id, month:month, amount:conn, note:'কানেকশন ফি', status:'due', createdAt:new Date().toISOString()}); if(due>0) DB.bills.push({id:uid('bill'), userId:newUser.id, month:month, amount:due, note:'শুরুর অদায়িত বিল', status:'due', createdAt:new Date().toISOString()}); save('নতুন ইউজার যোগ করা হয়েছে — '+name); showToast('ইউজার সফলভাবে যোগ হয়েছে'); closeModal(); });
+      $('cancelCustomer').addEventListener('click', closeModal);
+
+      // modal helpers
+      function showModal(id){ overlay.classList.add('show'); overlay.style.display='block'; $(id).classList.add('show'); }
+      function closeModal(){ overlay.classList.remove('show'); overlay.style.display='none'; document.querySelectorAll('.modal').forEach(m=>m.classList.remove('show')); }
+      $('overlay').addEventListener('click', closeModal); $('detailClose').addEventListener('click', closeModal);
+
+      // backup/restore
+      function doBackup(){ try{ const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='nibir-backup-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'_')+'.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); showToast('ব্যাকআপ ডাউনলোড শুরু হয়েছে'); }catch(e){ alert('বেকআপ ব্যর্থ: '+e.message); } }
+      function doRestore(file){ if(!file) return; const r=new FileReader(); r.onload=()=>{ try{ const data=JSON.parse(r.result); if(confirm('পুরাতন ডেটা ওভাররাইট করবেন?')){ DB=data; save('ডেটা রিস্টোর করা হয়েছে'); showToast('রিস্টোর সম্পন্ন'); } }catch(e){ alert('ফাইল অনুপযুক্ত'); } }; r.readAsText(file); }
+
+      // wiring
+      document.querySelectorAll('[data-tab]').forEach(b=> b.addEventListener('click', ()=> showTab(b.getAttribute('data-tab'))));
+      $('btnAddCustomer').addEventListener('click', openAddCustomer);
+      $('btnGenerateNextMonth').addEventListener('click', ()=>{ if(confirm('সত্যিই পরের মাসের বিল জেনারেট করবেন?')) genNextMonthBills(); });
+      $('btnPayAllThisMonth').addEventListener('click', payAllThisMonth);
+      $('btnShowDueThisMonth').addEventListener('click', ()=>{ showTab('billing'); renderBillingContent('thisMonthDue'); });
+      $('btnShowAllBills').addEventListener('click', ()=>{ showTab('billing'); renderBillingContent('all'); });
+      $('btnAddExpense').addEventListener('click', openAddExpense);
+      $('saveExpense').addEventListener('click', saveExpense);
+      $('cancelExpense').addEventListener('click', closeModal);
+      $('btnAddIsp').addEventListener('click', openAddIsp);
+      $('btnBackup').addEventListener('click', doBackup); $('btnBackupSide').addEventListener('click', doBackup);
+      $('btnRestore').addEventListener('click', ()=>$('restoreFile').click()); $('btnRestoreSide').addEventListener('click', ()=>$('restoreFile').click());
+      $('restoreFile').addEventListener('change', e=>{ const f=e.target.files[0]; if(f) doRestore(f); });
+      $('themeSelect').addEventListener('change', ()=>{ DB.meta=DB.meta||{}; DB.meta.theme=$('themeSelect').value; save('থিম পরিবর্তন করা হয়েছে'); });
+      $('btn12Billing').addEventListener('click', render12Billing); $('btn12Users').addEventListener('click', render12Users); $('btn12Exp').addEventListener('click', render12Expenses); $('btn12Isp').addEventListener('click', render12IspPaid);
+
+      // initial load
+      load(); seed(); save(); // save -> renderAll
+
+      function renderAll(){ if(DB.meta && DB.meta.logo){ $('logoImg').src = DB.meta.logo; $('logoImg').style.display='block'; $('logoPlaceholder').style.display='none'; createAndLinkManifest(); } else { $('logoImg').style.display='none'; $('logoPlaceholder').style.display='block'; }
+        populateIspSelects(); renderIspList(); renderCustomersList(); renderExpensesList(); computeKPI(); renderBillingContent('all'); }
+
+      // PWA manifest & service worker setup helpers
+      let manifestBlobUrl = null;
+      function createAndLinkManifest(){ try{ const appName = (DB.meta && DB.meta.appName) || 'নিবির ক্যাবল নেটওয়ার্ক'; const logo = (DB.meta && DB.meta.logo) || null; const icons = []; if(logo){ // use same data URL for multiple sizes (device will scale)
+            icons.push({src:logo,sizes:'512x512',type:'image/png'});
+          }
+          const manifest = {name:appName,short_name:appName,start_url:'.',display:'standalone',background_color:'#ffffff',theme_color:'#0ea5a4',icons:icons};
+          const blob = new Blob([JSON.stringify(manifest)],{type:'application/json'});
+          if(manifestBlobUrl) URL.revokeObjectURL(manifestBlobUrl);
+          manifestBlobUrl = URL.createObjectURL(blob);
+          // remove previous link if any
+          let rel = document.querySelector('link[rel="manifest"]'); if(rel) rel.remove(); const link = document.createElement('link'); link.rel='manifest'; link.href = manifestBlobUrl; document.head.appendChild(link);
+          // provide download link for offline creation of real manifest file
+          createSwAndManifestFiles(manifest);
+      }catch(e){ console.error('manifest error',e); } }
+
+      // create service worker string and downloadable sw.js + manifest.json for hosting
+      function createSwAndManifestFiles(manifestObj){ // create sw.js content
+        const swContent = `self.addEventListener('install', function(e){ self.skipWaiting(); });\nself.addEventListener('activate', function(e){ clients.claim(); });\nself.addEventListener('fetch', function(e){ // basic offline: try cache then network (no cache storage here, keep simple)
+          e.respondWith(fetch(e.request).catch(()=>{ return new Response('Offline - resource not available'); })); });`;
+        const swBlob = new Blob([swContent],{type:'application/javascript'}); const swUrl = URL.createObjectURL(swBlob);
+        // create downloadable files UI (hidden) so user can host these if needed
+        let holder = $('__pwa_files__'); if(!holder){ holder = document.createElement('div'); holder.id='__pwa_files__'; holder.style.display='none'; const a1=document.createElement('a'); a1.id='downloadSw'; holder.appendChild(a1); const a2=document.createElement('a'); a2.id='downloadManifest'; holder.appendChild(a2); document.body.appendChild(holder); }
+        $('downloadSw').href = swUrl; $('downloadSw').download = 'sw.js';
+        const manifestBlob = new Blob([JSON.stringify(manifestObj,null,2)],{type:'application/json'}); const manUrl = URL.createObjectURL(manifestBlob); $('downloadManifest').href = manUrl; $('downloadManifest').download = 'manifest.json';
+        // attempt to register service worker from same-origin path first; if fails, show tips
+        tryRegisterServiceWorker(); }
+
+      async function tryRegisterServiceWorker(){ if('serviceWorker' in navigator){ try{ // ideal: site should host /sw.js; try registering /sw.js
+            await navigator.serviceWorker.register('/sw.js'); console.log('Service worker registered at /sw.js'); showToast('Service worker registered (if hosted).');
+          }catch(e){ console.warn('register /sw.js failed, trying blob approach', e); // try blob approach (may be blocked in some browsers)
+            try{ const swContent = `self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>clients.claim());self.addEventListener('fetch',e=>{ e.respondWith(fetch(e.request).catch(()=>new Response('Offline'))); });`;
+              const blob = new Blob([swContent],{type:'application/javascript'}); const url = URL.createObjectURL(blob); await navigator.serviceWorker.register(url); console.log('Service worker registered from blob url'); showToast('Service worker রেজিস্ট্রি হয়েছে (ব্লব)।');
+            }catch(err){ console.warn('blob sw register failed',err); // provide user instructions link
+              provideManualSwInstructions(); }
+          } } }
+
+      function provideManualSwInstructions(){ // show a small modal with instructions and download links
+        const modal=document.createElement('div'); modal.className='modal full show'; modal.style.zIndex=9999; modal.innerHTML = `<h3>PWA সেটআপ — পরের ধাপ</h3><p>আপনার সার্ভারে <strong>/sw.js</strong> এবং <strong>/manifest.json</strong> ফাইল আপলোড করুন। নিচের লিংক থেকে ফাইল ডাউনলোড করে আপনার হোস্টিং রুটে রাখুন:</p><p><a id=\"dlSw\">sw.js ডাউনলোড</a><br><a id=\"dlManifest\">manifest.json ডাউনলোড</a></p><p>তারপর আপনার সাইট HTTPS-এ সার্ভ করুন এবং ব্রাউজার থেকে <em>Add to Home screen</em> দিতে পারবেন।</p><div style=\"display:flex;gap:8px;margin-top:8px\"><button id=\"closePwaHelp\">বাতিল</button></div>`; document.body.appendChild(modal); // hook anchors to hidden files
+        const dlSw = document.getElementById('downloadSw'); const dlMan = document.getElementById('downloadManifest'); const anchorSw = modal.querySelector('#dlSw'); const anchorMan = modal.querySelector('#dlManifest'); anchorSw.href = dlSw.href; anchorSw.download = dlSw.download; anchorMan.href = dlMan.href; anchorMan.download = dlMan.download; anchorSw.addEventListener('click', ()=>{}); anchorMan.addEventListener('click', ()=>{}); modal.querySelector('#closePwaHelp').addEventListener('click', ()=> modal.remove()); }
+
+      // initialize manifest link if logo exists
+      if(DB.meta && DB.meta.logo) createAndLinkManifest();
+
+      // expose DB for debugging
+      window.ISPDB = ()=>DB;
+
+      // Done
+    });
+  </script>
+  <script src="drive.js"></script>
+<script>
+async function syncToNetlify() {
+  const data = JSON.parse(localStorage.getItem("nibir_isp_billing_pwa_v1") || "{}");
+  await fetch("/.netlify/functions/saveData", { method: "POST", body: JSON.stringify(data) });
+}
+setInterval(syncToNetlify, 10000); // প্রতি ১০ সেকেন্ডে অটো সেভ
+</script>
+
+</body>
+</html>
